@@ -36,6 +36,9 @@ ros::Publisher pub_center_3;
 ros::Publisher pub_botton;
 ros::Publisher pub_position_y;
 ros::Publisher pub_position_x;
+ros::Publisher pub_x;
+
+bool local_start = false;
 
 struct location {
     double x;
@@ -62,6 +65,14 @@ void input_state(const std_msgs::StringConstPtr& msg)
         path_complete = true;
     }
 
+}
+
+void input_nav(const std_msgs::StringConstPtr& msg)
+{
+    if(msg->data == "reach_1_goal")
+    {
+        local_start = true;
+    }
 }
 
 void input(const sensor_msgs::PointCloud2ConstPtr& scan)
@@ -148,35 +159,37 @@ void input(const sensor_msgs::PointCloud2ConstPtr& scan)
             laserCloudIn.points[i].z = 0;
         }
         else{
-            //ROS_INFO("X : %f\tY : %f\tZ: %f", laserCloudIn.points[i].x, laserCloudIn.points[i].y, laserCloudIn.points[i].z);
-            //************************************************
-            //Subscribe topic that announce navigation finish
-            //*************************************************
-            if (path_complete == true)
-            {
-                max_x = 0;
-                path_complete = false;
-            }
-            if (laserCloudIn.points[i].x > max_x)
-            {
-                if (laserCloudIn.points[i].x > 2.5)
-                {
-                    ROS_INFO("[ERROR] There is no door\nx value:    %lf", laserCloudIn.points[i]);
-                }
-                else
-                {
-                    max_x = laserCloudIn.points[i].x;
-                }
-                //ROS_INFO("Elevator_distance: %f", max_x);
-            }
+            //max_x = 0;
 
-            y_arrary[cnt].y = laserCloudIn.points[i].y;
-            y_arrary[cnt].x = laserCloudIn.points[i].x;
-            //ROS_INFO("Update : %f", y_arrary[cnt]);
-            cnt += 1;
-            point_num += 1;
+            //if (local_start == true)
+            //{
+                if (path_complete == true)
+                {
+                    max_x = 0;
+                    path_complete = false;
+                }
+                if (laserCloudIn.points[i].x > max_x)
+                {                 
+                    if (laserCloudIn.points[i].x > 2.5)
+                    {
+                        ROS_INFO("[ERROR] There is no door\nx value:    %lf", laserCloudIn.points[i]);
+                    }
+                    else
+                    {
+                        max_x = laserCloudIn.points[i].x;
+                    }
+                }
+
+                y_arrary[cnt].y = laserCloudIn.points[i].y;
+                y_arrary[cnt].x = laserCloudIn.points[i].x;
+                cnt += 1;
+                point_num += 1;
+            //}
         }
     }
+    std_msgs::Float32 position_x;
+    position_x.data = max_x;
+    pub_x.publish(position_x);
     //ROS_INFO("Point : %d", point_num);
 
     pcl::PCLPointCloud2 cloud_roi;
@@ -230,6 +243,8 @@ void input(const sensor_msgs::PointCloud2ConstPtr& scan)
     center_location_3.header.frame_id = "utlidar_lidar";
     pub_center_3.publish(center_location_3);
 
+    ROS_INFO("elevator_x: %lf   elevator_y: %lf", max_x, center_2);
+
     std_msgs::Float32 pos_y;
     pos_y.data = center_3;
     pub_position_y.publish(pos_y);
@@ -249,6 +264,8 @@ int main(int argc, char** argv)
     //ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2> ("/lidar_point_merge", 100, input);
     ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2> ("/utlidar/cloud", 100, input);
     ros::Subscriber sub_state = nh.subscribe<std_msgs::String> ("/path_state",100, input_state);
+    ros::Subscriber sub_nav = nh.subscribe<std_msgs::String> ("/reach_goal",100, input_nav);
+
     pub_transform = nh.advertise<sensor_msgs::PointCloud2> ("/transformed_points", 100);
     pub_downsampling = nh.advertise<sensor_msgs::PointCloud2> ("/down_sampling",100);
     pub_roi = nh.advertise<sensor_msgs::PointCloud2> ("/utlidar_roi",100);
@@ -257,6 +274,7 @@ int main(int argc, char** argv)
     pub_center_3 = nh.advertise<geometry_msgs::PointStamped> ("/door_center_3", 100);
     pub_position_y = nh.advertise<std_msgs::Float32> ("/door_y", 100);
     pub_position_x = nh.advertise<std_msgs::Float32> ("/door_x", 100);
+    pub_x = nh.advertise<std_msgs::Float32> ("/position_x", 100);
 
     ros::spin();
 }

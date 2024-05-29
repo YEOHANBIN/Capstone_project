@@ -33,7 +33,7 @@ float standard_y = 0;
 bool door_open = false;
 bool path_3_on = false;
 bool path_5_on = false;
-bool path_2_complete = false;
+//bool path_2_complete = false;
 bool path_start_error = false;
 int path_num = 0;
 int open_cnt = 0;
@@ -85,6 +85,33 @@ void path_planning(position start, position goal)
         pub_path.publish(path_plan);
 
 }
+float x_distance = 0;
+int dis_cnt = 0;
+bool path_5_start = false;
+
+void input_x(const std_msgs::Float32ConstPtr& msg)
+{
+    
+    x_distance = msg->data;
+    if (x_distance > 1.0)
+    {
+        dis_cnt += 1;
+        ROS_INFO("DIST COUNT: %d", dis_cnt);
+    }
+
+    if( dis_cnt >= 5)
+    {
+        if(path_5_on == true)
+        {
+            path_5_start = true;
+        }
+        dis_cnt = 0;
+    }
+
+    ROS_INFO("X value:  %lf,count:  %d, path_5:     %d", msg->data, dis_cnt,path_5_start);
+
+}
+
 
 void input_p(const geometry_msgs::PointStampedConstPtr& msg)
 {
@@ -104,10 +131,21 @@ void input_p(const geometry_msgs::PointStampedConstPtr& msg)
         quickSort(x_array,0,x_cnt);
         global_x = x_array[10];
 
-        if (msg->point.x > 1.2 && path_num == 2)
+        if (msg->point.x > 1.2)
         {
-            open_cnt +=1;
-            ROS_INFO("Open count up %lf", msg->point.x);
+            if(path_num == 2 || path_num == 5)
+            {
+               if( door_open == false)
+               { 
+                    open_cnt +=1;
+                    ROS_INFO("Open count up %lf", msg->point.x);
+               }
+            }
+        }
+        else
+        {
+            door_open == false;
+            open_cnt == 0;
         }
 
         if (open_cnt >= 5)
@@ -115,6 +153,8 @@ void input_p(const geometry_msgs::PointStampedConstPtr& msg)
             door_open = true;
             open_cnt = 0;
         }
+
+        ROS_INFO("Door open: %d\nDoor Distance: %lf",door_open, msg->point.x);
     }
 
     if (y_cnt < 20)
@@ -209,7 +249,7 @@ void input_state(const std_msgs::StringConstPtr& msg)
         botton_pos.y = 0;
         botton_pos.x = 0;
         position init_pos;
-        init_pos.y = 0.68;
+        init_pos.y = 0.72;
         init_pos.x = 0;
 
         sleep(2);
@@ -227,10 +267,10 @@ void input_state(const std_msgs::StringConstPtr& msg)
         elevator_pos.y = 0;
         elevator_pos.x = 1.8;
         position e_botton_pos;
-        e_botton_pos.y = -0.50;
+        e_botton_pos.y = -0.45;
         e_botton_pos.x = 1.8;
         
-        path_2_complete = true;
+        //path_2_complete = true;
         path_3_on = true;
 
         if (door_open == false)
@@ -273,7 +313,7 @@ void input_state(const std_msgs::StringConstPtr& msg)
         e_botton_pos.y = 0;
         e_botton_pos.x = 0;
         position elevator_pos;
-        elevator_pos.y = 0.65;
+        elevator_pos.y = 0.55;
         elevator_pos.x = 0;
 
         sleep(2);
@@ -299,6 +339,7 @@ void input_state(const std_msgs::StringConstPtr& msg)
     }
     else if (path_num == 5)
     {
+        sleep(2);
         position elevator_pos;
         elevator_pos.y = 0;
         elevator_pos.x = 0;
@@ -306,9 +347,16 @@ void input_state(const std_msgs::StringConstPtr& msg)
         last_pos.y = 0;
         last_pos.x = 2.0;
 
+        if(path_5_on == false)
+        {
+            door_open = false;
+            open_cnt = 0;
+        }
+
         path_5_on = true;
 
-        if (door_open == false)
+
+        if (path_5_start == false)
         {
             ROS_INFO("Waiting -- Path_5: %d\nGlobal_x:    %lf", path_5_on, global_x);
         }
@@ -317,7 +365,8 @@ void input_state(const std_msgs::StringConstPtr& msg)
             ROS_INFO("Get off the elevator");
             sleep(1);
             path_planning(elevator_pos, last_pos);
-            path_5_on == false;
+            path_5_on = false;
+            path_5_start = false;
             ROS_INFO("Path 5 Published -- Path_5: %d",path_5_on);
         }
     }
@@ -338,6 +387,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     ros::Subscriber sub_p = nh.subscribe<geometry_msgs::PointStamped> ("/door_center_2", 100, input_p);
     ros::Subscriber sub_state = nh.subscribe<std_msgs::String> ("/path_state",100, input_state);
+    ros::Subscriber sub_pos_x = nh.subscribe<std_msgs::Float32> ("/position_x",100, input_x);
     pub_path = nh.advertise<nav_msgs::Path> ("/local_path_1",100);
 
     ros::spin();

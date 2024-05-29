@@ -73,6 +73,8 @@ private:
     int timer_cnt = 0;
     double odom_x, odom_y, odom_z, odom_qx, odom_qy, odom_qz, odom_qw = 0.0;
     double state_x, state_y;
+    double odom_yaw = 0.0;
+    double odom_yaw0 = 0.0;
     void cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
     {
         float vx_cmd_vel = msg->linear.x;
@@ -87,6 +89,20 @@ private:
             }
         }
     }
+
+    double normalize_angle(double angle)
+{
+    while (angle > M_PI) angle -= 2.0 * M_PI;
+    while (angle < -M_PI) angle += 2.0 * M_PI;
+    return angle;
+}
+
+double to_0_2pi(double angle)
+{
+    return angle >= 0 ? angle : (angle + 2.0 * M_PI);
+}
+
+
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
         odom_x = msg->pose.pose.position.x;
@@ -96,6 +112,22 @@ private:
         odom_qy = msg->pose.pose.orientation.y;
         odom_qz = msg->pose.pose.orientation.z;
         odom_qw = msg->pose.pose.orientation.w;
+        double siny_cosp = 2 * (odom_qw * odom_qz + odom_qx * odom_qy);
+        double cosy_cosp = 1 - 2 * (odom_qy * odom_qy + odom_qz * odom_qz);
+        double yaw = std::atan2(siny_cosp, cosy_cosp);
+        odom_yaw = yaw;
+        
+        if (t < 0)
+        {
+            odom_yaw0 = yaw;
+            // use_init = true;
+            printf("Initial yaw: %lf\n", yaw);
+        }
+
+        double delta_yaw = normalize_angle(yaw - odom_yaw0);
+        odom_yaw = to_0_2pi(delta_yaw);
+
+        printf("Current yaw: %lf\n", odom_yaw);
     }
 
 
@@ -119,7 +151,7 @@ private:
         {
             state_x = data->position[0]-state_px0;
             state_y = data->position[1]-state_py0;
-            state_yaw = data->imu_state.rpy[2]-yaw0+3.14;
+            state_yaw = odom_yaw;//data->imu_state.rpy[2]-yaw0+3.14;
             current_x = odom_x-px0;
             current_y = odom_y-py0;
             
@@ -139,10 +171,10 @@ private:
                 switch(path_flag){
                     case 0:
                     path_flag = 1;
-                    path_state.data = "path_1_complete";
+                    path_state.data = "path_1_done_arm_move";
                     p_state_pub->publish(path_state);
 
-                    Control_flag = 1;
+                    Control_flag = 1; //arm
                     break;
 
                     case 1:
@@ -305,10 +337,10 @@ private:
             printf("tim_cnt : %d\n", timer_cnt);
             }
             else{
-                double vyaw_cmd_vel = 0.25;
+                double vyaw_cmd_vel = 0.4;
                 sport_req.Move(req,0.0,0.0,vyaw_cmd_vel);
                 req_puber->publish(req);
-                if(state_yaw <= yaw0 + 6.1){
+                if(state_yaw <= 6.0){
                     req_puber->publish(req);
                     printf("imu : %lf\n", state_yaw);
                     printf("moving_yaw\n");
