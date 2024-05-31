@@ -58,7 +58,7 @@ void input_nav(const std_msgs::StringConstPtr& msg)
     {
         local_start = true;
     }
-    ROS_INFO("\nLocal Path Mode:  %d", locall_start);
+    ROS_INFO("\nLocal Path Mode:  %d", local_start);
 }
 
 void input_state(const std_msgs::StringConstPtr& msg)
@@ -151,8 +151,8 @@ void input_point(const sensor_msgs::PointCloud2ConstPtr& scan)
                     }
                 }
 
-                point_arrary[cnt].y = laserCloudIn.points[i].y;
-                point_arrary[cnt].x = laserCloudIn.points[i].x;
+                point_arrary[point_num].y = laserCloudIn.points[i].y;
+                point_arrary[point_num].x = laserCloudIn.points[i].x;
                 point_num += 1;
             }
             else
@@ -187,7 +187,7 @@ void input_point(const sensor_msgs::PointCloud2ConstPtr& scan)
                 {
                     if (point_arrary[i].y < small_y) small_y = point_arrary[i].y;
                     if (point_arrary[i].y > large_y) large_y = point_arrary[i].y;
-                    sum += y_arrary[i].y;
+                    sum += point_arrary[i].y;
                     n += 1;
                 }
             }

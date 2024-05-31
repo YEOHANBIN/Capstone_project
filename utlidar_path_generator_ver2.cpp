@@ -180,7 +180,6 @@ void input_state(const std_msgs::StringConstPtr& msg)
         sleep(2);
         path_planning(zero_pos, botton_pos);
         path_start_error = false;
-        path_num += 1;
     }  
   }
   else if (msg->data == "path_1_complete")
@@ -229,7 +228,7 @@ void input_state(const std_msgs::StringConstPtr& msg)
     sleep(2);
     path_planning(zero_pos, init_pos);
   }
-  else if (path_num = 2)
+  else if (path_num == 2)
   {
     ROS_INFO("\n[Path 2 Start]\n");
     path_2_on = true;
@@ -309,7 +308,7 @@ void input_state(const std_msgs::StringConstPtr& msg)
       sleep(1);
       path_planning(zero_pos, last_pos);
       path_5_on = false;
-      ROS_INFO("Path 5 Published -- Path_5: %d",path5_on);
+      ROS_INFO("Path 5 Published -- Path_5: %d",path_5_on);
     }
   }
   else if (path_num == 0)
@@ -328,7 +327,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     ros::Subscriber sub_p = nh.subscribe<geometry_msgs::PointStamped> ("/door_center_2", 100, input_p);
     ros::Subscriber sub_state = nh.subscribe<std_msgs::String> ("/path_state",100, input_state);
-    ros::Subscriber sub_pos_x = nh.subscribe<std_msgs::Float32> ("/position_x",100, input_x);
+    //ros::Subscriber sub_pos_x = nh.subscribe<std_msgs::Float32> ("/position_x",100, input_x);
     pub_path = nh.advertise<nav_msgs::Path> ("/local_path_1",100);
 
     ros::spin();
