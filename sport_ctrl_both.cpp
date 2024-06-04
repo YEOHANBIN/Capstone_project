@@ -73,8 +73,13 @@ private:
     int timer_cnt = 0;
     double odom_x, odom_y, odom_z, odom_qx, odom_qy, odom_qz, odom_qw = 0.0;
     double state_x, state_y;
+    double previous_yaw = 0.0;
+    double cumulative_yaw = 0.0;
+    double D2R = 180/3.141592;
+    double R2D = 3.141592/180;
     double odom_yaw = 0.0;
-    double odom_yaw0 = 0.0;
+    double yaw_init =0.0;
+    double convert_yaw=0.0;
     void cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
     {
         float vx_cmd_vel = msg->linear.x;
@@ -89,20 +94,6 @@ private:
             }
         }
     }
-
-    double normalize_angle(double angle)
-{
-    while (angle > M_PI) angle -= 2.0 * M_PI;
-    while (angle < -M_PI) angle += 2.0 * M_PI;
-    return angle;
-}
-
-double to_0_2pi(double angle)
-{
-    return angle >= 0 ? angle : (angle + 2.0 * M_PI);
-}
-
-
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
         odom_x = msg->pose.pose.position.x;
@@ -116,18 +107,32 @@ double to_0_2pi(double angle)
         double cosy_cosp = 1 - 2 * (odom_qy * odom_qy + odom_qz * odom_qz);
         double yaw = std::atan2(siny_cosp, cosy_cosp);
         odom_yaw = yaw;
-        
-        if (t < 0)
-        {
-            odom_yaw0 = yaw;
-            // use_init = true;
-            printf("Initial yaw: %lf\n", yaw);
-        }
+        // printf("yaw : %lf\n",yaw);
+        state_yaw = odom_yaw;
+        double angle_diff = state_yaw - previous_yaw;
 
-        double delta_yaw = normalize_angle(yaw - odom_yaw0);
-        odom_yaw = to_0_2pi(delta_yaw);
+                // 각도 차이를 -180도에서 180도 사이로 조정
+                if (angle_diff > 1) {
+                    angle_diff = 0;
+                } 
+                else if (angle_diff < -1) {
+                   angle_diff = 0;
+                }
+                else if(angle_diff > 0){
+                    angle_diff = angle_diff; 
+                }
+                else{
+                    angle_diff = -angle_diff;
+                }
 
-        printf("Current yaw: %lf\n", odom_yaw);
+                cumulative_yaw += angle_diff;
+                previous_yaw = state_yaw;
+
+                // 이동 명령을 호출하는 예제 함수
+                // sport_req.Move(req, vx_cmd_vel, vy_cmd_vel, vyaw_cmd_vel);
+                // req_puber->publish(req);
+                // printf("cumulative_yaw = %lf\n", cumulative_yaw);
+                // printf("previous_yaw = %lf\n", previous_yaw);
     }
 
 
@@ -139,21 +144,24 @@ double to_0_2pi(double angle)
             state_py0 = data->position[1];
             px0 = odom_x;
             py0 = odom_y;
-            yaw0 = data->imu_state.rpy[2];
+            // yaw0 = data->imu_state.rpy[2];
             // printf("state_read\n");
             if(path_flag == 2 || path_flag == 5){
                 path_state.data = "path_moving";
                 p_state_pub->publish(path_state);
             }
-            
+            // previous_yaw = yaw0;
+            // cumulative_yaw = yaw0;
+            yaw_init = cumulative_yaw;
         }
         if (t > 0 && Control_Mode == "path_mode")
         {
             state_x = data->position[0]-state_px0;
             state_y = data->position[1]-state_py0;
-            state_yaw = odom_yaw;//data->imu_state.rpy[2]-yaw0+3.14;
+            state_yaw = data->position[1]-state_py0;
             current_x = odom_x-px0;
             current_y = odom_y-py0;
+            convert_yaw = cumulative_yaw - yaw_init;
             
             // printf("odom_x_init = %lf, odom_y_init = %lf\n", px0, py0);
             // printf("odom_x : %lf, odom_y : %lf\n state_x : %lf, state_y : %lf \n",odom_x, odom_y, state_x, state_y);
@@ -171,10 +179,10 @@ double to_0_2pi(double angle)
                 switch(path_flag){
                     case 0:
                     path_flag = 1;
-                    path_state.data = "path_1_done_arm_move";
+                    path_state.data = "path_1_complete";
                     p_state_pub->publish(path_state);
 
-                    Control_flag = 1; //arm
+                    Control_flag = 1;
                     break;
 
                     case 1:
@@ -212,19 +220,20 @@ double to_0_2pi(double angle)
 
                     case 5:
                     path_flag = 6;
-                    path_state.data = "path_6_complete";
+                    path_state.data = "path_all_complete";
                     p_state_pub->publish(path_state);
 
                     Control_flag = 1;
+                    Control_Mode = "cmd_vel_mode";
                     break;
 
-                    case 6:
-                    path_flag = 7;
-                    path_state.data = "path_num_init";
-                    p_state_pub->publish(path_state);
+                    // case 6:
+                    // path_flag = 7;
+                    // path_state.data = "path_num_init";
+                    // p_state_pub->publish(path_state);
 
-                    Control_flag = 1;
-                    break;
+                    // Control_flag = 1;
+                    // break;
                 }
             }
 
@@ -266,10 +275,10 @@ double to_0_2pi(double angle)
 
         
         else if(Control_flag == 2){
-            printf("Moveing... \n");
+            // printf("Moveing... \n");
         }
         else if(Control_flag == 3){
-            printf("Path Following done.\n");
+            // printf("Path Following done.\n");
             Control_Mode = "None";
         }
         }
@@ -302,7 +311,7 @@ double to_0_2pi(double angle)
             double time_temp = t - time_seg;
 
             std::vector<PathPoint> path;
-            printf("for_start\n");
+            // printf("for_start\n");
             if(path_flag != 4){
             for (int i = 0; i < 30; i++)
             {
@@ -334,21 +343,39 @@ double to_0_2pi(double angle)
             // Publish request messages
             req_puber->publish(req);
             timer_cnt = timer_cnt + 1;
-            printf("tim_cnt : %d\n", timer_cnt);
+            // printf("tim_cnt : %d\n", timer_cnt);
             }
+
             else{
-                double vyaw_cmd_vel = 0.4;
-                sport_req.Move(req,0.0,0.0,vyaw_cmd_vel);
+                double vyaw_cmd_vel = 0.25;
+                sport_req.Move(req,0,0,vyaw_cmd_vel);
                 req_puber->publish(req);
-                if(state_yaw <= 6.0){
-                    req_puber->publish(req);
-                    printf("imu : %lf\n", state_yaw);
+
+
+                
+
+                if (convert_yaw <= 3.141592) {
+                    // req_puber->publish(req);
+                    printf("imu : %lf\n", convert_yaw);
                     printf("moving_yaw\n");
+                } 
+                else {
+                    timer_cnt = 70;
+                    printf("rotate_yaw_complete\n");
                 }
-                else{
-                   timer_cnt = 70; 
-                   printf("rotate_yaw_complite\n");
-                }
+
+
+
+
+                // if(state_yaw <= yaw0 + 180){
+                //     req_puber->publish(req);
+                //     printf("imu : %lf\n", state_yaw);
+                //     printf("moving_yaw\n");
+                // }
+                // else{
+                //    timer_cnt = 70; 
+                //    printf("rotate_yaw_complite\n");
+                // }
             }
 
             

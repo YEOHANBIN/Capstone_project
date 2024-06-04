@@ -79,8 +79,13 @@ void input_point(const sensor_msgs::PointCloud2ConstPtr& scan)
     //Transform
     Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
     
-    transform (0,0) = -0.9659;
-    transform (0,2) = 0.2588;
+    //transform (0,0) = -0.9659;
+    //transform (0,2) = 0.2588;
+    //transform (2,0) = -0.2588;
+    //transform (2,2) = -0.9659;
+
+    transform (0,0) = 0.9659;
+    transform (0,2) = -0.2588;
     transform (2,0) = -0.2588;
     transform (2,2) = -0.9659;
 
@@ -126,9 +131,10 @@ void input_point(const sensor_msgs::PointCloud2ConstPtr& scan)
     for(unsigned int i = 0; i < laserCloudIn.points.size(); i++)
     {
         double theta = ROI_theta(laserCloudIn.points[i].y, laserCloudIn.points[i].x);
+        //ROS_INFO("Theta:    %lf",theta);
 
         if((theta < 60 || theta > 120) ||
-            (laserCloudIn.points[i].x < 0 || laserCloudIn.points[i].x > 2.5) ||
+            (laserCloudIn.points[i].x > 0 || laserCloudIn.points[i].x < -2.5) ||
             (laserCloudIn.points[i].z < -0.2 || laserCloudIn.points[i].z > 0.2))
         {
             laserCloudIn.points[i].x = 0;
@@ -139,9 +145,9 @@ void input_point(const sensor_msgs::PointCloud2ConstPtr& scan)
         {
             if(local_start == true)
             {
-                if(laserCloudIn.points[i].x > max_x)
+                if(laserCloudIn.points[i].x < max_x)
                 {
-                    if (laserCloudIn.points[i].x > 2.5)
+                    if (laserCloudIn.points[i].x < -2.5)
                     {
                         ROS_INFO("[ERROR] There is no door\nx value:    %lf", laserCloudIn.points[i]);
                     }

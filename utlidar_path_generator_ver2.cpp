@@ -24,7 +24,9 @@ float global_y = 0;
 bool door_open = false;
 int path_num = 0;
 int open_cnt = 0;
+int start_cnt = 0;
 bool path_start_error = false;
+bool path_start = false;
 bool path_2_on = false;
 bool path_5_on = false;
 
@@ -84,6 +86,7 @@ void path_planning(position start, position goal)
 
 void input_p(const geometry_msgs::PointStampedConstPtr& msg)
 {
+  start_cnt += 1;
   if (x_cnt < 20)
   {
     x_array[x_cnt] = msg->point.x;
@@ -98,7 +101,7 @@ void input_p(const geometry_msgs::PointStampedConstPtr& msg)
     quickSort(x_array,0,x_cnt);
     global_x = x_array[10];
 
-    if (msg->point.x > 1.2)
+    if (msg->point.x < -1.2)
     {
       if(path_num == 2 || path_num == 5)
       {
@@ -125,7 +128,7 @@ void input_p(const geometry_msgs::PointStampedConstPtr& msg)
       open_cnt = 0;
     }
 
-    ROS_INFO("Door open: %d\nDoor Distance: %lf",door_open, msg->point.x);
+    //ROS_INFO("Door open: %d\nDoor Distance: %lf",door_open, msg->point.x);
   }
 
   if (y_cnt < 20)
@@ -149,37 +152,39 @@ void input_state(const std_msgs::StringConstPtr& msg)
   zero_pos.y = 0;
   zero_pos.x = 0;
   position botton_pos;
-  botton_pos.y = global_y - 0.75;
-  botton_pos.x = global_x - 0.85;
+  botton_pos.y = global_y + 0.75;
+  botton_pos.x = global_x + 0.85;
   position init_pos;
-  init_pos.y = 0.72;
+  init_pos.y = -0.72;
   init_pos.x = 0;
   position elevator_pos;
   elevator_pos.y = 0;
-  elevator_pos.x = 1.8;
+  elevator_pos.x = -2.0;
   position e_botton_pos;
-  e_botton_pos.y = -0.45;
-  e_botton_pos.x = 1.8;
+  e_botton_pos.y = 0.45;
+  e_botton_pos.x = -2.0;
   position e_center_pos;
-  e_center_pos.y = 0.55;
+  e_center_pos.y = -0.55;
   e_center_pos.x = 0;
   position last_pos;
   last_pos.y = 0;
-  last_pos.x = 2.0;
+  last_pos.x = -2.0;
 
   
-  if (msg->data == "path_start" || path_start_error == true)
+  if (msg->data == "path_start" || path_start == true)
   {    
     ROS_INFO("\n[Path 0 Start]\n");
     if (sqrt(global_x*global_x + global_y*global_y) > 2.5)
     {
-        path_start_error = true;
+        path_start = true;
     }
     else
     {
-        sleep(2);
+        //sleep(2);
+        path_start = true;
+        //ROS_INFO("Start count: %d",start_cnt);
         path_planning(zero_pos, botton_pos);
-        path_start_error = false;
+        path_start = false;
     }  
   }
   else if (msg->data == "path_1_complete")
@@ -240,7 +245,7 @@ void input_state(const std_msgs::StringConstPtr& msg)
     else
     {
       ROS_INFO("Enter into Elevator");
-      sleep(1);
+      //sleep(1);
 
       std::vector<geometry_msgs::PoseStamped> pose_stamp(30);
       for (int i = 0; i < 30; i++)
@@ -305,7 +310,7 @@ void input_state(const std_msgs::StringConstPtr& msg)
     {
       ROS_INFO("\n[Path 5 Start]\n");
       ROS_INFO("Get off the Elevator");
-      sleep(1);
+      //sleep(1);
       path_planning(zero_pos, last_pos);
       path_5_on = false;
       ROS_INFO("Path 5 Published -- Path_5: %d",path_5_on);

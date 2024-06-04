@@ -6,6 +6,7 @@
 #include <std_msgs/Float32.h>
 #include <std_msgs/String.h>
 #include <nav_msgs/Path.h>
+#include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PointStamped.h>
 #include <time.h>
 
